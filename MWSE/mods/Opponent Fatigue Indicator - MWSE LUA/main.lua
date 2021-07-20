@@ -1,14 +1,15 @@
-local gameHUDID = nil
-local gameHUD = nil
+--local gameHUDID = nil
+--local gameHUD = nil
 local barMenuID = nil
 local barMenu = nil
 
-local redrawFatigueTimer
 local lastTarget = nil
 
 local function opponentFatigueReset()
-	redrawFatigueTimer = nil
-	lastTarget = nil
+	lastTarget = nil 
+	--barMenu.visible = false
+	barMenu:destroy()
+	barMenu = nil
 end
 
 local function createFatigueBar(_current, _max)
@@ -41,51 +42,82 @@ end
 
 local function updateFatigueBar()
     -- Can't update or destroy the fatigue bar if it's been destroyed
-	if((barMenu == nil) or (redrawFatigueTimer == nil) or (lastTarget == nil)) then
+	if((barMenu == nil) or (lastTarget == nil)) 
+	then
 		return
 	end
+	
+	--[[
+	if(lastTarget.mobile.health.widget.alpha ~= 1.0) 
+	then
+		barMenu.alpha = lastTarget.mobile.health.widget.alpha
+	end
+	
+    if(lastTarget.mobile.health.widget.fillAlpha ~= 1.0) 
+	then
+		barMenu.fillAlpha = lastTarget.mobile.health.widget.fillAlpha
+	end
+	--]]
+
 
 	-- Need to cancel the bar if the enemy is dead
-	if(lastTarget.mobile.health.current <= 0.0)
-	then
-	    --mwse.log("Destroying fatigue bar")
-		barMenu:destroy()
-		barMenu = nil
-		redrawFatigueTimer:cancel()
-		redrawFatigueTimer = nil
-	else 
-	    --mwse.log("Updating fatigue bar values")
-		barMenu.widget.max = lastTarget.mobile.fatigue.base
-		barMenu.widget.current = lastTarget.mobile.fatigue.current
-	end
+	--mwse.log("Updating fatigue bar values")		
+	barMenu.widget.max = lastTarget.mobile.fatigue.base
+	barMenu.widget.current = lastTarget.mobile.fatigue.current
 end
 
-local function opponentFatigueBarCallback(e)
-    -- Someone other than the player is attacking
-    if (e.reference ~= tes3.player) then
-        return
-    end
-	
-	--mwse.log("Player attacking")
-
-    -- The player has hit an ememy
-    if (e.targetReference ~= nil) 
+local function onSimulate(e)	
+	-- Check if that target is alive
+	if (lastTarget ~= nil) 
 	then
-		lastTarget = e.targetReference
-	
+		if(lastTarget.mobile.health.current <= 0.0)
+		then
+			--mwse.log("Target has died")
+			lastTarget = nil
+			opponentFatigueReset()
+			return
+		end
+	end
+
+    -- We have a valid enemy for the player
+    if (lastTarget ~= nil) 
+	then
 		-- The fatigue bar does not already exist
 		if(barMenu == nil) 
 		then
 		    --mwse.log("Creating fatigue bar")
-			createFatigueBar(e.targetReference.mobile.fatigue.current, e.targetReference.mobile.fatigue.base)
+			createFatigueBar(lastTarget.mobile.fatigue.current, lastTarget.mobile.fatigue.base)
 		end
 		
-		-- We always need to reset the timer if a hit has occured
-		redrawFatigueTimer = timer.start({ duration = 0.1, callback = updateFatigueBar, type = timer.simulate, iterations = -1 })
+		updateFatigueBar()
+	else 
+		if(barMenu ~= nil) 
+		then
+			opponentFatigueReset()
+		end
     end
 end
 
--- On any attack, call my method to put up a health bar for the enemy hit, lasting 5 seconds since the last hit
-event.register("attack", opponentFatigueBarCallback)
+local function updateLastTarget(e) 
+    -- Someone other than the player is attacking
+    if (e.reference ~= tes3.player) 
+	then
+        return
+    end
 
-event.register("load", opponentFatigueReset)
+    -- The player has hit an ememy
+    if (e.targetReference ~= nil) 
+	then
+		--mwse.log("Updating target")
+		lastTarget = e.targetReference
+	end
+end
+
+-- Initialize 
+--event.register("load", opponentFatigueReset)
+
+-- On any attack, we must update who the current target is
+event.register("attack", updateLastTarget);
+
+-- Every frame, we must update the bar's state
+event.register("simulate", onSimulate)
