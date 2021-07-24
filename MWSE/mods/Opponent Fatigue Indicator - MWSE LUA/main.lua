@@ -7,7 +7,7 @@ local lastTarget = nil
 
 local function opponentFatigueReset()
 	lastTarget = nil 
-	--barMenu.visible = false
+	barMenu.visible = false -- just in case?
 	barMenu:destroy()
 	barMenu = nil
 end
@@ -47,6 +47,7 @@ local function updateFatigueBar()
 		return
 	end
 	
+	-- Attempting to match fade out of enemy health bar, doesn't work
 	--[[
 	if(lastTarget.mobile.health.widget.alpha ~= 1.0) 
 	then
@@ -66,36 +67,29 @@ local function updateFatigueBar()
 	barMenu.widget.current = lastTarget.mobile.fatigue.current
 end
 
-local function onSimulate(e)	
-	-- Check if that target is alive
-	if (lastTarget ~= nil) 
+local function onSimulate(e)
+	-- No target, nothing to do
+	if (lastTarget == nil) 
 	then
-		if(lastTarget.mobile.health.current <= 0.0)
-		then
-			--mwse.log("Target has died")
-			lastTarget = nil
-			opponentFatigueReset()
-			return
-		end
+		return
+	end
+	
+	-- Check if that target is alive, or a condition has resulted in their .mobile not existing
+	if(lastTarget.mobile == nil or lastTarget.mobile.health.current <= 0.0) 
+	then
+		opponentFatigueReset()
+		return
 	end
 
-    -- We have a valid enemy for the player
-    if (lastTarget ~= nil) 
+	-- The fatigue bar does not already exist
+	if(barMenu == nil) 
 	then
-		-- The fatigue bar does not already exist
-		if(barMenu == nil) 
-		then
-		    --mwse.log("Creating fatigue bar")
-			createFatigueBar(lastTarget.mobile.fatigue.current, lastTarget.mobile.fatigue.base)
-		end
-		
-		updateFatigueBar()
-	else 
-		if(barMenu ~= nil) 
-		then
-			opponentFatigueReset()
-		end
-    end
+		--mwse.log("Creating fatigue bar")
+		createFatigueBar(lastTarget.mobile.fatigue.current, lastTarget.mobile.fatigue.base)
+		return
+	end
+	
+	updateFatigueBar()
 end
 
 local function updateLastTarget(e) 
