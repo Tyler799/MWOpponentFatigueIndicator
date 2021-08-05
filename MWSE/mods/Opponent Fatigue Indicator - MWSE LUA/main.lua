@@ -6,10 +6,12 @@ local barMenu = nil
 local lastTarget = nil
 
 local function opponentFatigueReset()
-	lastTarget = nil 
-	barMenu.visible = false -- just in case?
-	barMenu:destroy()
-	barMenu = nil
+	lastTarget = nil
+	if (barMenu ~= nil) then
+		barMenu.visible = false -- just in case?
+		barMenu:destroy()
+		barMenu = nil
+	end
 end
 
 local function createFatigueBar(_current, _max)
@@ -107,11 +109,18 @@ local function updateLastTarget(e)
 	end
 end
 
+local function initialized()
+	-- On any attack, we must update who the current target is
+	event.register("attack", updateLastTarget)
+
+	-- Every frame, we must update the bar's state
+	event.register("simulate", onSimulate)
+	
+	-- Catch Load, reset target and bar to nil
+	event.register("load", opponentFatigueReset)
+	
+	mwse.log("[OpponentFatigueIndicator] Initialized")
+end
+
 -- Initialize 
---event.register("load", opponentFatigueReset)
-
--- On any attack, we must update who the current target is
-event.register("attack", updateLastTarget);
-
--- Every frame, we must update the bar's state
-event.register("simulate", onSimulate)
+event.register("initialized", initialized)
